@@ -18,6 +18,8 @@ Use this repository to prepare a Mac or Windows laptop for the Round 0 Workbench
 | macOS | [Mac setup guide](mac/Workbench-Lab-Setup-macOS.md) | [Workbench-Lab-Setup-Mac.sh](mac/Workbench-Lab-Setup-Mac.sh) |
 | Windows | [Windows setup guide](windows/Workbench-Lab-Setup-Windows.md) | [setup-windows.sh](windows/setup-windows.sh) |
 
+**Windows script filename:** `setup-windows.sh` in the `windows/` folder. Run it as `bash windows/setup-windows.sh` from the repository root.
+
 ## Quick start
 
 Clone this repository:
