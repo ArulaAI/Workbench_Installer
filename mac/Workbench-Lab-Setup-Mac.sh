@@ -2,18 +2,22 @@
 #
 # Workbench-Lab-Setup-Mac.sh
 #
-# Installs and validates Workbench on macOS. Mirrors
-# "Mac OS Workbench Installer" in Workbench-Lab-Setup-Mac.md.
+# Configures Workbench using preinstalled system tools and Python. Mirrors
+# "Mac OS Workbench Installer" in Workbench-Lab-Setup-macOS.md.
 #
 # Usage:
 #   bash Workbench-Lab-Setup-Mac.sh
 #
-# Safe to re-run: existing installation stages are detected and reused.
+# Safe to re-run: existing repositories and setup are detected and reused.
+# Creates a venv and installs requirements.txt. Custom Prisma, GraphQL,
+# Protobuf, and Zig grammars are optional and are not needed by this lab.
+# Never installs system tools or downloads a Python runtime.
 #
 # Optional overrides:
 #   INSTALL_DIR     (default: ~/Lab)
 #   WORKBENCH_DIR   (default: ~/Lab/workbench)
 #   FIXTURE_DIR     (default: ~/Lab/payments-validation-fixture)
+#   SPEED_PYTHON    (existing interpreter; otherwise .venv/bin/python3 or python3 on PATH)
 
 set -uo pipefail
 
@@ -84,18 +88,21 @@ discover_homebrew() {
 }
 
 require_command() {
-    command -v "$1" >/dev/null 2>&1 || die "$1 was not found." "$2"
+    local label="$1"
+    [[ $# -lt 3 ]] || label="$1 ($3)"
+    command -v "$1" >/dev/null 2>&1 || die "$label was not found." "$2"
 }
 
 discover_compatible_bash() {
     local candidate
     for candidate in \
+        /bin/bash \
         "${BREW_PREFIX:+$BREW_PREFIX/bin/bash}" \
         /opt/homebrew/bin/bash \
         /usr/local/bin/bash \
         "$(command -v bash 2>/dev/null || true)"; do
         [[ -n "$candidate" && -x "$candidate" ]] || continue
-        if "$candidate" -c '(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 3) ))' 2>/dev/null; then
+        if "$candidate" -c '(( BASH_VERSINFO[0] > 3 || (BASH_VERSINFO[0] == 3 && BASH_VERSINFO[1] >= 2) ))' 2>/dev/null; then
             BASH_BIN="$candidate"
             return 0
         fi
@@ -123,7 +130,20 @@ clone_with_retries() {
 }
 
 jq_works() {
+    local version
+    version="$(jq --version 2>/dev/null)" || return 1
+    [[ "$version" =~ ^jq-([0-9]+)\.([0-9]+) ]] || return 1
+    (( BASH_REMATCH[1] > 1 || (BASH_REMATCH[1] == 1 && BASH_REMATCH[2] >= 7) )) || return 1
     printf '{}\n' | jq -e . >/dev/null 2>&1
+}
+
+node_works() {
+    node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 18) ? 0 : 1)' >/dev/null 2>&1
+}
+
+timeout_runner_works() {
+    [[ -x "$SPEED_DIR/lib/timeout" && -f "$SPEED_DIR/lib/timeout_runner.py" ]] || return 1
+    "$SPEED_DIR/lib/timeout" --kill-after=1 2 "$SPEED_PYTHON" -c 'print("Bundled Python timeout: PASS")'
 }
 
 skills_doctor_output_is_healthy() {
@@ -138,7 +158,7 @@ skills_doctor_healthy() {
 
 configure_workbench_env() {
     export SPEED_DIR="$WORKBENCH_DIR"
-    export SPEED_PYTHON="$WORKBENCH_DIR/.venv/bin/python3"
+    export SPEED_PYTHON="$VENV_PY"
     prepend_path "$WORKBENCH_DIR"
 }
 
@@ -154,36 +174,32 @@ discover_homebrew
 if [[ -n "$BREW_BIN" ]]; then
     ok "Homebrew available for prerequisite recovery: $BREW_BIN ($("$BREW_BIN" --version | /usr/bin/head -n 1))"
 else
-    info "Homebrew is not on PATH. It is needed only if a prerequisite must be installed or upgraded."
+    info "Homebrew is optional. Install missing prerequisites through your approved software source."
 fi
 info "Architecture: $(uname -m)"
 
 step "Validating the required command-line dependencies"
 if ! discover_compatible_bash; then
     detected_bash="$(bash --version 2>/dev/null | /usr/bin/head -n 1 || printf 'not found')"
-    die "Bash 4.3 or newer is required. Detected: $detected_bash" "Install or upgrade Bash through your approved software source (Homebrew: 'brew install bash'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
+    die "Bash 3.2 or newer is required. Detected: $detected_bash" "Use the macOS system Bash at /bin/bash or install Bash through your approved software source, then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 fi
 require_command curl "Install curl through your approved software source, then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 require_command git "Install Git through your approved software source (Homebrew: 'brew install git'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command jq "Install jq through your approved software source (Homebrew: 'brew install jq'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-jq_works || die "jq is installed but could not process JSON." "Repair or reinstall jq through your approved software source (Homebrew: 'brew reinstall jq'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command gtimeout "Install GNU coreutils through your approved software source (Homebrew: 'brew install coreutils'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command uv "Install uv through your approved software source (Homebrew: 'brew install uv'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command node "Install Node.js through your approved software source (Homebrew: 'brew install node'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
+require_command jq "Install jq 1.7 or newer through your approved software source (Homebrew: 'brew install jq'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'." "1.7 or newer"
+jq_works || die "jq 1.7 or newer is required and must be able to process JSON." "Install or repair jq 1.7 or newer through your approved software source (Homebrew: 'brew reinstall jq'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
+require_command node "Install Node.js 22.18 or newer through your approved software source (Homebrew: 'brew install node'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'." "22.18 or newer"
+node_works || die "Node.js 22.18 or newer is required (detected: $(node --version 2>/dev/null || printf 'unknown'))." "Install a compatible Node.js version through your approved software source, then rerun the installer."
 require_command npm "Install npm with Node.js through your approved software source, then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 require_command claude "Install Claude Code through your approved software source (npm: 'npm install -g @anthropic-ai/claude-code'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command tree-sitter "Install the Tree-sitter CLI through your approved software source (npm: 'npm install -g tree-sitter-cli'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 ok "Required command-line dependencies are available"
 info "Bash: $("$BASH_BIN" --version | /usr/bin/head -n 1)"
 info "curl: $(curl --version | /usr/bin/head -n 1)"
 info "Git: $(git --version)"
 info "jq: $(jq --version)"
-info "coreutils: $(gtimeout --version | /usr/bin/head -n 1)"
-info "uv: $(uv --version)"
+info "Agent timeout: bundled Workbench Python runner (verified after Python setup)"
 info "Node.js: $(node --version)"
 info "npm: $(npm --version)"
 info "Claude Code: $(claude --version)"
-info "tree-sitter: $(tree-sitter --version)"
 
 step "Preparing the Lab workspace"
 mkdir -p "$INSTALL_DIR" \
@@ -233,29 +249,38 @@ fi
     || die "Workbench is not on $WORKBENCH_BRANCH." "From '$WORKBENCH_DIR', preserve local changes and run 'git switch $WORKBENCH_BRANCH', then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 ok "Workbench branch: $WORKBENCH_BRANCH"
 
-step "Creating the isolated Python environment"
-[[ -f "$WORKBENCH_DIR/requirements.txt" ]] || die "$WORKBENCH_DIR/requirements.txt was not found." "Move the incomplete Workbench checkout aside, then rerun 'bash Workbench-Lab-Setup-Mac.sh' to create a fresh clone."
-(
-    cd "$WORKBENCH_DIR" || exit 1
-    uv python install 3.12 &&
-    uv venv --python 3.12 .venv &&
-    uv pip install -r requirements.txt --python .venv/bin/python3
-) || die "The Workbench Python environment could not be prepared." "Review the uv output, resolve the reported package or network issue, and rerun."
+step "Preparing Python using an existing installed interpreter"
+[[ -f "$WORKBENCH_DIR/requirements.txt" ]] || die "$WORKBENCH_DIR/requirements.txt was not found." "Restore a complete Workbench checkout, then rerun the script."
+BASE_PY="${SPEED_PYTHON:-}"
+if [[ -z "$BASE_PY" ]]; then
+    if [[ -x "$WORKBENCH_DIR/.venv/bin/python3" ]]; then
+        BASE_PY="$WORKBENCH_DIR/.venv/bin/python3"
+    else
+        BASE_PY="$(command -v python3 2>/dev/null || true)"
+    fi
+fi
+[[ -x "$BASE_PY" ]] \
+    || die "Python 3.12+ was not found." "Install Python through your approved software source, set SPEED_PYTHON to its interpreter if needed, then rerun 'bash Workbench-Lab-Setup-Mac.sh'. The script does not download Python."
+"$BASE_PY" -c 'import sys; sys.exit(sys.version_info < (3, 12))' \
+    || die "Python 3.12 or newer is required (detected: $("$BASE_PY" --version 2>&1 || printf 'unknown'))." "Install a compatible Python through your approved software source, set SPEED_PYTHON, then rerun the script."
 VENV_PY="$WORKBENCH_DIR/.venv/bin/python3"
+if [[ ! -x "$VENV_PY" ]]; then
+    "$BASE_PY" -m venv "$WORKBENCH_DIR/.venv" \
+        || die "The Workbench Python environment could not be created." "Review the venv error, resolve the permission or Python installation issue, then rerun."
+fi
 [[ -x "$VENV_PY" ]] \
-    || die "Workbench Python was not created at $VENV_PY." "Run 'uv python install 3.12', then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
+    || die "Workbench Python was not created at $VENV_PY." "Repair or recreate the Workbench environment using your approved Python 3.12+, then rerun."
 "$VENV_PY" -c 'import sys; sys.exit(sys.version_info < (3, 12))' \
-    || die "Python 3.12 or newer is required (detected: $("$VENV_PY" --version 2>&1 || printf 'unknown'))." "Run 'uv python install 3.12', then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
+    || die "The existing Workbench environment uses Python older than 3.12." "Preserve the old .venv directory, prepare a Python 3.12+ environment, then rerun."
+if ! "$VENV_PY" -m pip --version >/dev/null 2>&1; then
+    "$VENV_PY" -m ensurepip \
+        || die "pip is missing and could not be bootstrapped in the Workbench environment." "Have your approved Python environment provisioned with pip, then rerun."
+fi
+"$VENV_PY" -m pip install -r "$WORKBENCH_DIR/requirements.txt" \
+    || die "Workbench Python packages could not be installed." "Review the pip output, confirm access to your approved package index or Artifactory, resolve the reported issue, then rerun."
 "$VENV_PY" -c "import yaml, tree_sitter, sklearn, networkx; print('Python dependencies: PASS')" \
-    || die "A required Workbench Python package could not be imported." "From '$WORKBENCH_DIR', run 'uv pip install -r requirements.txt --python .venv/bin/python3', then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-ok "$($VENV_PY --version)"
-
-step "Building the custom language grammars"
-[[ -x "$WORKBENCH_DIR/scripts/build-grammars.sh" ]] \
-    || die "$WORKBENCH_DIR/scripts/build-grammars.sh was not found or is not executable." "Move the incomplete Workbench checkout aside, then rerun 'bash Workbench-Lab-Setup-Mac.sh' to create a fresh clone."
-(cd "$WORKBENCH_DIR" && ./scripts/build-grammars.sh --clean) \
-    || die "The custom language grammar build failed." "Review the build output and rerun the installer after correcting the reported issue."
-ok "Custom language grammars built"
+    || die "A required Workbench Python package could not be imported." "Repair the packages using the version constraints in $WORKBENCH_DIR/requirements.txt through your approved software source, then rerun the script."
+ok "$("$VENV_PY" --version)"
 
 step "Adding Workbench to zsh"
 touch "$HOME/.zshrc" \
@@ -274,13 +299,15 @@ fi
     printf '\n%s\n' "$ZSHRC_MARKER"
     printf 'export SPEED_DIR="%s"\n' "$WORKBENCH_DIR"
     printf 'export PATH="$SPEED_DIR:$PATH"\n'
-    printf 'export SPEED_PYTHON="$SPEED_DIR/.venv/bin/python3"\n'
+    printf 'export SPEED_PYTHON="%s"\n' "$VENV_PY"
 } >> "$HOME/.zshrc" \
     || die "Could not write the Workbench configuration to $HOME/.zshrc." "Run 'ls -l \"$HOME/.zshrc\"', resolve the file ownership or permission issue, and rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 ok "Configured Workbench at $WORKBENCH_DIR in ~/.zshrc"
 configure_workbench_env
 
 step "Verifying Workbench in the active and fresh zsh environments"
+timeout_runner_works \
+    || die "The bundled Python timeout runner is missing or could not execute." "Update Workbench on feat/301-latest, verify SPEED_PYTHON and lib/timeout, then rerun the installer."
 workbench help >/dev/null 2>&1 \
     || die "workbench help failed in the active environment." "Run '$WORKBENCH_DIR/workbench help' to inspect the error, then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 WORKBENCH_ACTIVE_VERIFIED=1
@@ -361,28 +388,23 @@ skills_doctor_output_is_healthy "$skills_doctor_output" \
 ok "Workbench skills doctor: healthy with 0 issues"
 
 step "Readiness check"
-failed=0
 check() {
     if eval "$2" >/dev/null 2>&1; then
         printf '    \033[32mPASS\033[0m  %s\n' "$1"
     else
-        printf '    \033[31mFAIL\033[0m  %s\n' "$1"
-        [[ $# -gt 2 ]] && printf '          Try: %s\n' "$3"
-        failed=$((failed + 1))
+        die "$1 readiness check failed." "${3:-Install or repair the missing prerequisite through your approved software source, then rerun the script.}"
     fi
 }
-check "Bash 4.3+"              '"$BASH_BIN" -c '\''(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 3) ))'\''' "Install or upgrade Bash through your approved software source, then rerun the installer."
+check "Bash 3.2+"              '"$BASH_BIN" -c '\''(( BASH_VERSINFO[0] > 3 || (BASH_VERSINFO[0] == 3 && BASH_VERSINFO[1] >= 2) ))'\''' "Install or upgrade Bash through your approved software source, then rerun the installer."
 check "curl"                   'curl --version' "Install curl through your approved software source, then rerun the installer."
 check "Git"                    'git --version' "Install Git through your approved software source, then rerun the installer."
-check "jq"                     'jq_works' "Install or repair jq through your approved software source, then rerun the installer."
-check "GNU coreutils"          'gtimeout --version' "Run 'brew install coreutils', then rerun the installer."
-check "uv"                     'uv --version' "Run 'brew install uv', then rerun the installer."
-check "Node.js"                'node --version' "Install Node.js through your approved software source, then rerun the installer."
+check "jq 1.7+"                'jq_works' "Install or repair jq 1.7 or newer through your approved software source, then rerun the installer."
+check "Bundled Python timeout"  'timeout_runner_works' "Update Workbench on feat/301-latest and verify SPEED_PYTHON, then rerun the installer."
+check "Node.js 22.18+"          'node_works' "Install Node.js 22.18 or newer through your approved software source, then rerun the installer."
 check "npm"                    'npm --version' "Install or repair npm with Node.js through your approved software source, then rerun the installer."
 check "Claude Code"            'claude --version' "Install Claude Code through your approved software source, then rerun the installer."
-check "tree-sitter CLI"        'tree-sitter --version' "Install the Tree-sitter CLI through your approved software source, then rerun the installer."
-check "Python 3.12+"           '"$SPEED_PYTHON" -c '\''import sys; sys.exit(sys.version_info < (3,12))'\''' "Run 'uv python install 3.12', then rerun the installer."
-check "Python dependencies"    '"$SPEED_PYTHON" -c '\''import yaml, tree_sitter, sklearn, networkx'\''' "Reinstall requirements.txt in the Workbench virtual environment, then rerun the installer."
+check "Python 3.12+"           '"$SPEED_PYTHON" -c '\''import sys; sys.exit(sys.version_info < (3,12))'\''' "Install Python 3.12+ through your approved software source, set SPEED_PYTHON, then rerun the script."
+check "Python dependencies"    '"$SPEED_PYTHON" -c '\''import yaml, tree_sitter, sklearn, networkx'\''' "Install or repair requirements.txt packages through your approved software source, then rerun the script."
 check "Workbench verified"     '[[ "$WORKBENCH_ACTIVE_VERIFIED" -eq 1 && "$WORKBENCH_FRESH_VERIFIED" -eq 1 ]]' "Rerun the installer so the active and fresh-terminal Workbench checks can complete."
 check "SPEED from fixture"     '(cd "$FIXTURE_DIR" && speed help)' "From the payments fixture, run 'speed help', resolve the reported error, and rerun the installer."
 check "Workbench branch"       '[[ "$(git -C "$SPEED_DIR" branch --show-current)" == "feat/301-latest" ]]' "Review the Workbench repository branch, then rerun the installer."
@@ -395,11 +417,7 @@ check "Skills doctor healthy"  'skills_doctor_healthy' "From the fixture, run 'w
 check "Round 0 diff"           '[[ -n "$(git -C "$FIXTURE_DIR" diff --name-only main...round-0)" ]]' "Confirm the main and round-0 branches are available, then rerun the installer."
 
 echo
-if [[ $failed -eq 0 ]]; then
-    printf '\033[1;32mWorkbench is ready.\033[0m\n'
-else
-    printf '\033[1;31m%d readiness check(s) failed.\033[0m\n' "$failed"
-fi
+printf '\033[1;32mWorkbench is ready.\033[0m\n'
 
 cat <<EOF
 
@@ -415,4 +433,4 @@ Remaining manual check:
   9. When the health check, Round 0 summary, and SPEED help are confirmed: You are all set for the lab.
 EOF
 
-exit $((failed > 0))
+exit 0
