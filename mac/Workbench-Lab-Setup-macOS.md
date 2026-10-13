@@ -39,18 +39,15 @@ No Homebrew, GNU coreutils (`gtimeout`), `uv`, Tree-sitter CLI, or grammar build
 
 ## Before You Begin
 
-**Disable the previous Workbench plugin.** If `workbench@mastercard-workbench` was installed through a previous setup, disable the user-scoped plugin before installing this version of Workbench:
+**Disable any previous Workbench plugin.** If a Workbench plugin was installed through an earlier setup, disable the user-scoped plugin before installing this version of Workbench. List your plugins, then disable the earlier Workbench plugin using the exact name shown in the list:
 
 ```bash
-claude plugin disable workbench@mastercard-workbench --scope user
+claude plugin list
+claude plugin disable <earlier-workbench-plugin> --scope user
 claude plugin list
 ```
 
-Confirm that the plugin list reports:
-
-```text
-workbench@mastercard-workbench    user    disabled
-```
+Confirm that the earlier plugin now shows as `disabled`. If the list shows no earlier Workbench plugin, continue.
 
 ## Quick Start
 
