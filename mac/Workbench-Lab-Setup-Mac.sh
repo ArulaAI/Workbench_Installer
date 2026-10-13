@@ -29,8 +29,6 @@ WORKBENCH_BRANCH="feat/301-latest"
 FIXTURE_REPO="https://github.com/ArulaAI/payments-validation-fixture.git"
 FIXTURE_BRANCH="round-0"
 ZSHRC_MARKER="# Workbench (Workbench-Lab-Setup-Mac.sh)"
-BREW_BIN=""
-BREW_PREFIX=""
 BASH_BIN=""
 WORKBENCH_ACTIVE_VERIFIED=0
 WORKBENCH_FRESH_VERIFIED=0
@@ -52,41 +50,6 @@ prepend_path() {
     export PATH
 }
 
-append_path() {
-    case ":$PATH:" in
-        *":$1:"*) ;;
-        *) PATH="$PATH:$1" ;;
-    esac
-    export PATH
-}
-
-discover_homebrew() {
-    local candidate=""
-    local login_candidate=""
-
-    if [[ -n "${HOMEBREW_PREFIX:-}" && -x "${HOMEBREW_PREFIX}/bin/brew" ]]; then
-        candidate="${HOMEBREW_PREFIX}/bin/brew"
-    elif command -v brew >/dev/null 2>&1; then
-        candidate="$(command -v brew)"
-    elif [[ -x /opt/homebrew/bin/brew ]]; then
-        candidate="/opt/homebrew/bin/brew"
-    elif [[ -x /usr/local/bin/brew ]]; then
-        candidate="/usr/local/bin/brew"
-    elif [[ -x /bin/zsh ]]; then
-        login_candidate="$(/bin/zsh -lic 'command -v brew' 2>/dev/null | /usr/bin/tail -n 1 || true)"
-        [[ -n "$login_candidate" && -x "$login_candidate" ]] && candidate="$login_candidate"
-    fi
-
-    if [[ -n "$candidate" ]]; then
-        BREW_BIN="$candidate"
-        BREW_PREFIX="$("$BREW_BIN" --prefix 2>/dev/null)" \
-            || die "Homebrew could not report its installation prefix." "Run '$BREW_BIN --prefix', resolve the reported Homebrew error, and rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-        append_path "$BREW_PREFIX/bin"
-        append_path "$BREW_PREFIX/sbin"
-        hash -r
-    fi
-}
-
 require_command() {
     local label="$1"
     [[ $# -lt 3 ]] || label="$1 ($3)"
@@ -97,9 +60,6 @@ discover_compatible_bash() {
     local candidate
     for candidate in \
         /bin/bash \
-        "${BREW_PREFIX:+$BREW_PREFIX/bin/bash}" \
-        /opt/homebrew/bin/bash \
-        /usr/local/bin/bash \
         "$(command -v bash 2>/dev/null || true)"; do
         [[ -n "$candidate" && -x "$candidate" ]] || continue
         if "$candidate" -c '(( BASH_VERSINFO[0] > 3 || (BASH_VERSINFO[0] == 3 && BASH_VERSINFO[1] >= 2) ))' 2>/dev/null; then
@@ -167,30 +127,24 @@ step "Checking macOS and required prerequisites"
 if ! /usr/bin/xcode-select -p >/dev/null 2>&1 || ! /usr/bin/xcrun --find clang >/dev/null 2>&1; then
     die \
         "Apple Command Line Tools and the compiler are required but were not found." \
-        "Run 'xcode-select --install', complete the macOS installer, open a new Terminal window, and rerun 'bash Workbench-Lab-Setup-Mac.sh'. On a managed Mac, use your approved software catalog or contact IT support if installation is restricted."
+        "Pause here, install Apple Command Line Tools through an approved source, open a new Terminal window, and rerun the installer."
 fi
 ok "Apple Command Line Tools: $(/usr/bin/xcode-select -p)"
-discover_homebrew
-if [[ -n "$BREW_BIN" ]]; then
-    ok "Homebrew available for prerequisite recovery: $BREW_BIN ($("$BREW_BIN" --version | /usr/bin/head -n 1))"
-else
-    info "Homebrew is optional. Install missing prerequisites through your approved software source."
-fi
 info "Architecture: $(uname -m)"
 
 step "Validating the required command-line dependencies"
 if ! discover_compatible_bash; then
     detected_bash="$(bash --version 2>/dev/null | /usr/bin/head -n 1 || printf 'not found')"
-    die "Bash 3.2 or newer is required. Detected: $detected_bash" "Use the macOS system Bash at /bin/bash or install Bash through your approved software source, then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
+    die "Bash 3.2 or newer is required. Detected: $detected_bash" "Pause here, use the macOS system Bash at /bin/bash or install Bash through an approved source, then rerun the installer."
 fi
-require_command curl "Install curl through your approved software source, then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command git "Install Git through your approved software source (Homebrew: 'brew install git'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command jq "Install jq 1.7 or newer through your approved software source (Homebrew: 'brew install jq'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'." "1.7 or newer"
-jq_works || die "jq 1.7 or newer is required and must be able to process JSON." "Install or repair jq 1.7 or newer through your approved software source (Homebrew: 'brew reinstall jq'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command node "Install Node.js 22.18 or newer through your approved software source (Homebrew: 'brew install node'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'." "22.18 or newer"
-node_works || die "Node.js 22.18 or newer is required (detected: $(node --version 2>/dev/null || printf 'unknown'))." "Install a compatible Node.js version through your approved software source, then rerun the installer."
-require_command npm "Install npm with Node.js through your approved software source, then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command claude "Install Claude Code through your approved software source (npm: 'npm install -g @anthropic-ai/claude-code'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
+require_command curl "Pause here, install curl through an approved source, then rerun the installer."
+require_command git "Pause here, install Git through an approved source, then rerun the installer."
+require_command jq "Pause here, install jq 1.7 or newer through an approved source, then rerun the installer." "1.7 or newer"
+jq_works || die "jq 1.7 or newer is required and must be able to process JSON." "Pause here, install or repair jq 1.7 or newer through an approved source, then rerun the installer."
+require_command node "Pause here, install Node.js 22.18 or newer through an approved source, then rerun the installer." "22.18 or newer"
+node_works || die "Node.js 22.18 or newer is required (detected: $(node --version 2>/dev/null || printf 'unknown'))." "Pause here, install Node.js 22.18 or newer through an approved source, then rerun the installer."
+require_command npm "Pause here, install or repair npm (it is installed with Node.js) through an approved source, then rerun the installer."
+require_command claude "Pause here, install Claude Code through an approved source, then rerun the installer."
 ok "Required command-line dependencies are available"
 info "Bash: $("$BASH_BIN" --version | /usr/bin/head -n 1)"
 info "curl: $(curl --version | /usr/bin/head -n 1)"
@@ -260,9 +214,9 @@ if [[ -z "$BASE_PY" ]]; then
     fi
 fi
 [[ -x "$BASE_PY" ]] \
-    || die "Python 3.12+ was not found." "Install Python through your approved software source, set SPEED_PYTHON to its interpreter if needed, then rerun 'bash Workbench-Lab-Setup-Mac.sh'. The script does not download Python."
+    || die "Python 3.12+ was not found." "Pause here, install Python 3.12 or newer through an approved source (set SPEED_PYTHON to its interpreter if it is not the python3 on your PATH), then rerun the installer. The script does not download Python."
 "$BASE_PY" -c 'import sys; sys.exit(sys.version_info < (3, 12))' \
-    || die "Python 3.12 or newer is required (detected: $("$BASE_PY" --version 2>&1 || printf 'unknown'))." "Install a compatible Python through your approved software source, set SPEED_PYTHON, then rerun the script."
+    || die "Python 3.12 or newer is required (detected: $("$BASE_PY" --version 2>&1 || printf 'unknown'))." "Pause here, install Python 3.12 or newer through an approved source (set SPEED_PYTHON to its interpreter if needed), then rerun the installer."
 VENV_PY="$WORKBENCH_DIR/.venv/bin/python3"
 if [[ ! -x "$VENV_PY" ]]; then
     "$BASE_PY" -m venv "$WORKBENCH_DIR/.venv" \
@@ -279,7 +233,7 @@ fi
 "$VENV_PY" -m pip install -r "$WORKBENCH_DIR/requirements.txt" \
     || die "Workbench Python packages could not be installed." "Review the pip output, confirm access to your approved package index or Artifactory, resolve the reported issue, then rerun."
 "$VENV_PY" -c "import yaml, tree_sitter, sklearn, networkx; print('Python dependencies: PASS')" \
-    || die "A required Workbench Python package could not be imported." "Repair the packages using the version constraints in $WORKBENCH_DIR/requirements.txt through your approved software source, then rerun the script."
+    || die "A required Workbench Python package could not be imported." "Pause here, repair the Python packages listed in $WORKBENCH_DIR/requirements.txt through an approved package source, then rerun the installer."
 ok "$("$VENV_PY" --version)"
 
 step "Adding Workbench to zsh"
@@ -392,19 +346,19 @@ check() {
     if eval "$2" >/dev/null 2>&1; then
         printf '    \033[32mPASS\033[0m  %s\n' "$1"
     else
-        die "$1 readiness check failed." "${3:-Install or repair the missing prerequisite through your approved software source, then rerun the script.}"
+        die "$1 readiness check failed." "${3:-Pause here, install or repair the missing prerequisite through an approved source, then rerun the installer.}"
     fi
 }
-check "Bash 3.2+"              '"$BASH_BIN" -c '\''(( BASH_VERSINFO[0] > 3 || (BASH_VERSINFO[0] == 3 && BASH_VERSINFO[1] >= 2) ))'\''' "Install or upgrade Bash through your approved software source, then rerun the installer."
-check "curl"                   'curl --version' "Install curl through your approved software source, then rerun the installer."
-check "Git"                    'git --version' "Install Git through your approved software source, then rerun the installer."
-check "jq 1.7+"                'jq_works' "Install or repair jq 1.7 or newer through your approved software source, then rerun the installer."
+check "Bash 3.2+"              '"$BASH_BIN" -c '\''(( BASH_VERSINFO[0] > 3 || (BASH_VERSINFO[0] == 3 && BASH_VERSINFO[1] >= 2) ))'\''' "Pause here, install or upgrade Bash through an approved source, then rerun the installer."
+check "curl"                   'curl --version' "Pause here, install curl through an approved source, then rerun the installer."
+check "Git"                    'git --version' "Pause here, install Git through an approved source, then rerun the installer."
+check "jq 1.7+"                'jq_works' "Pause here, install or repair jq 1.7 or newer through an approved source, then rerun the installer."
 check "Bundled Python timeout"  'timeout_runner_works' "Update Workbench on feat/301-latest and verify SPEED_PYTHON, then rerun the installer."
-check "Node.js 22.18+"          'node_works' "Install Node.js 22.18 or newer through your approved software source, then rerun the installer."
-check "npm"                    'npm --version' "Install or repair npm with Node.js through your approved software source, then rerun the installer."
-check "Claude Code"            'claude --version' "Install Claude Code through your approved software source, then rerun the installer."
-check "Python 3.12+"           '"$SPEED_PYTHON" -c '\''import sys; sys.exit(sys.version_info < (3,12))'\''' "Install Python 3.12+ through your approved software source, set SPEED_PYTHON, then rerun the script."
-check "Python dependencies"    '"$SPEED_PYTHON" -c '\''import yaml, tree_sitter, sklearn, networkx'\''' "Install or repair requirements.txt packages through your approved software source, then rerun the script."
+check "Node.js 22.18+"          'node_works' "Pause here, install Node.js 22.18 or newer through an approved source, then rerun the installer."
+check "npm"                    'npm --version' "Pause here, install or repair npm (it is installed with Node.js) through an approved source, then rerun the installer."
+check "Claude Code"            'claude --version' "Pause here, install Claude Code through an approved source, then rerun the installer."
+check "Python 3.12+"           '"$SPEED_PYTHON" -c '\''import sys; sys.exit(sys.version_info < (3,12))'\''' "Pause here, install Python 3.12 or newer through an approved source (set SPEED_PYTHON to its interpreter if needed), then rerun the installer."
+check "Python dependencies"    '"$SPEED_PYTHON" -c '\''import yaml, tree_sitter, sklearn, networkx'\''' "Pause here, repair the Python packages listed in requirements.txt through an approved package source, then rerun the installer."
 check "Workbench verified"     '[[ "$WORKBENCH_ACTIVE_VERIFIED" -eq 1 && "$WORKBENCH_FRESH_VERIFIED" -eq 1 ]]' "Rerun the installer so the active and fresh-terminal Workbench checks can complete."
 check "SPEED from fixture"     '(cd "$FIXTURE_DIR" && speed help)' "From the payments fixture, run 'speed help', resolve the reported error, and rerun the installer."
 check "Workbench branch"       '[[ "$(git -C "$SPEED_DIR" branch --show-current)" == "feat/301-latest" ]]' "Review the Workbench repository branch, then rerun the installer."

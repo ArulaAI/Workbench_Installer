@@ -1,6 +1,6 @@
 # Workbench Lab Setup Guide (macOS)
 
-Complete this setup before the lab. It validates the required command-line tools, configures Workbench from the `feat/301-latest` branch, and prepares the payments validation fixture for the Round 0 lab. Existing system tools are not upgraded automatically.
+Complete this setup before the lab. It validates the required command-line tools, configures Workbench from the `feat/301-latest` branch, and prepares the payments validation fixture for the Round 0 lab. The setup script never installs or upgrades system tools and never downloads a Python runtime.
 
 SPEED is the next version of Workbench, focused on agentic tasks. The tool is installed as `workbench`, and its commands also run as `speed`.
 
@@ -10,33 +10,32 @@ SPEED is the next version of Workbench, focused on agentic tasks. The tool is in
 | **Setup script** | `Workbench-Lab-Setup-Mac.sh` |
 | **Workbench branch** | `feat/301-latest` |
 | **Lab repository** | `payments-validation-fixture` on `round-0` |
-| **Network** | Access to GitHub and PyPI; access to Homebrew and npm when a missing prerequisite must be installed |
+| **Network** | Access to GitHub and PyPI (or your approved package index or mirror) |
 | **Result** | The script's readiness check passes, `/workbench-health` reports `Status: healthy`, the Round 0 diff is available, and `speed help` runs without errors |
 
 > **Setup timing:** Complete the setup well before the lab. Use the setup script; the manual steps in the appendix are only needed if the script cannot finish.
 
 ## Software and Package Dependencies
 
-The following software is required for this lab on macOS. Items listed as **Prerequisite** must be installed before running the setup script. The setup script validates all prerequisites and installs the remaining components.
+The following software is required for this lab on macOS. Items listed as **Prerequisite** must already be installed, through an approved software source, before you run the setup script. The script validates them without installing or upgrading anything, and sets up the remaining components.
 
 | # | Dependency | Requirement / Rev Level | Source |
 |---|---|---|---|
-| 1 | Apple Command Line Tools | Available | Prerequisite (`xcode-select --install`) |
-| 2 | Homebrew | Optional | Optional prerequisite (used to install missing dependencies) |
-| 3 | Bash | 4.3+ | Prerequisite (`brew install bash`); macOS includes 3.2 |
-| 4 | curl | Available | Bundled with macOS |
-| 5 | Git | Available | Bundled with Apple Command Line Tools |
-| 6 | jq | 1.7+ | Prerequisite (`brew install jq`) |
-| 7 | GNU coreutils (`gtimeout`) | Available | Prerequisite (`brew install coreutils`) |
-| 8 | uv | Available | Prerequisite (`brew install uv`) |
-| 9 | Python | 3.12+ | Installed by setup script (Python 3.12 via uv) |
-| 10 | Python packages | Workbench `requirements.txt` | Installed by setup script |
+| 1 | Apple Command Line Tools | Available | Prerequisite (approved source) |
+| 2 | Bash | 3.2+ | Included with macOS (`/bin/bash`) |
+| 3 | curl | Available | Bundled with macOS |
+| 4 | Git | Available | Bundled with Apple Command Line Tools |
+| 5 | jq | 1.7+ | Prerequisite (approved source) |
+| 6 | Python | 3.12+ | Prerequisite (approved source); the script does not download Python |
+| 7 | Node.js | 22.18+ | Prerequisite (approved source) |
+| 8 | npm | Available | Bundled with Node.js |
+| 9 | Claude Code | Available (tested with 2.1.108) | Prerequisite (approved source) |
+| 10 | Python packages | Workbench `requirements.txt` | Installed by setup script into a `.venv` |
 | 11 | ast-grep | From `requirements.txt` | Installed by setup script |
-| 12 | Tree-sitter CLI | Available | Prerequisite (`npm install -g tree-sitter-cli`) |
-| 13 | Node.js | 22.18+ | Prerequisite (`brew install node`) |
-| 14 | npm | Available | Bundled with Node.js |
-| 15 | Dashboard packages (npm) | Workbench `package-lock.json` | Installed on first `speed dashboard start` |
-| 16 | Claude Code | Available (tested with 2.1.108) | Prerequisite (`npm install -g @anthropic-ai/claude-code`) |
+| 12 | Agent timeout | Bundled with Workbench (`lib/timeout`) | Included in the Workbench repository |
+| 13 | Dashboard packages (npm) | Workbench `package-lock.json` | Installed on first `speed dashboard start` |
+
+No Homebrew, GNU coreutils (`gtimeout`), `uv`, Tree-sitter CLI, or grammar build is required. The optional Prisma, GraphQL, Protobuf, and Zig grammars are not used by this lab.
 
 ## Before You Begin
 
@@ -115,7 +114,7 @@ For any other issue, see the full troubleshooting table in the appendix or conta
 
 | Symptom | Resolution |
 |---|---|
-| The script stops and reports a missing or outdated tool | Follow the displayed `Try:` instruction, then rerun the script. It resumes where it stopped |
+| The script stops and reports a missing or outdated tool | Install or repair that tool through an approved source, as the displayed `Try:` instruction says, then rerun the script. It resumes where it stopped |
 | `permission denied` when starting the script | Run it with `bash Workbench-Lab-Setup-Mac.sh`, or run `chmod +x Workbench-Lab-Setup-Mac.sh` first |
 | A Git clone fails or is interrupted | The script retries automatically. If it still fails, confirm GitHub, VPN, or proxy access, then rerun |
 | `workbench: command not found` | Open a new Terminal window so your shell settings reload, then retry |
@@ -136,70 +135,42 @@ xcode-select -p
 xcrun --find clang
 ```
 
-If either command fails, run `xcode-select --install`. Complete the macOS installer, open a new Terminal window, and rerun the Workbench setup. On a managed Mac, use the approved software catalog or contact IT support if installation is restricted.
-
-Homebrew is an installation option for missing macOS prerequisites; it is not itself a Workbench runtime requirement. To confirm that it is available:
-
-```bash
-command -v brew
-brew --version
-```
-
-If a prerequisite is missing and Homebrew is not available, install the prerequisite through another approved software source or install Homebrew through the approved software catalog.
+If either command fails, pause here: install the Apple Command Line Tools through an approved source (on a managed Mac, use the approved software catalog or contact IT support), open a new Terminal window, and rerun the Workbench setup.
 
 ## 2. Validate the Required Command-Line Dependencies
 
 ```bash
-command -v bash
 bash --version
 curl --version
 git --version
 jq --version
 printf '{}\n' | jq -e .
-gtimeout --version
-uv --version
+python3 --version
 node --version
 npm --version
 claude --version
-tree-sitter --version
 ```
 
-The setup script checks these prerequisites without installing or upgrading them. If a prerequisite is missing or incompatible, the script stops, reports the detected condition, and provides a suggested installation or upgrade command. Complete that action through the approved software source, then rerun the script.
+The macOS system Bash (`/bin/bash`, version 3.2) is sufficient. The setup script checks these prerequisites without installing or upgrading them. If a prerequisite is missing or incompatible, the script stops and reports the detected condition. Install or repair it through an approved software source, then rerun the script.
 
 ### Repository Requirements
 
 | Dependency | Requirement |
 |---|---|
 | macOS | Supported platform; no minimum macOS version is specified |
-| Apple Command Line Tools | Required to compile the custom grammars; no version is specified |
-| Homebrew | Optional installation mechanism for missing macOS prerequisites |
-| Bash | 4.3 or newer |
+| Apple Command Line Tools | Required; no version is specified |
+| Bash | 3.2 or newer (the macOS system Bash is sufficient) |
 | curl | Required; no minimum version is specified |
 | Git | Required; no minimum version is specified |
 | jq | 1.7 or newer (jq 1.6 cannot run `speed plan`) |
-| GNU `gtimeout` | Required; supplied by `coreutils` on macOS; no minimum version is specified |
-| uv | Required to prepare the Python environment; no minimum version is specified |
+| Python | 3.12 or newer, installed before you run the script; the script does not download Python. If it is not the `python3` on your `PATH`, set `SPEED_PYTHON` to its interpreter |
 | Node.js and npm | Node.js 22.18 or newer (required to run the lab's TypeScript tests); npm is bundled with Node.js |
 | Claude Code | Required lab agent CLI (tested with 2.1.108) |
-| Tree-sitter CLI | Required to build the custom grammars; no minimum version is specified |
-| Python | The Workbench environment uses Python 3.12 or newer |
+| Agent timeout | Bundled with Workbench (`lib/timeout`); no GNU tools are needed |
 | Python Tree-sitter package | Installed from `requirements.txt` with the repository constraint `>=0.23,<1.0` |
 | Python packages | Installed according to the constraints in `requirements.txt` |
 
-If a dependency is missing, use its individual recovery command through an approved software source:
-
-| Missing prerequisite | Suggested command |
-|---|---|
-| Bash 4.3+ | `brew install bash` |
-| Git | `brew install git` |
-| jq | `brew install jq` |
-| GNU `gtimeout` | `brew install coreutils` |
-| uv | `brew install uv` |
-| Node.js and npm | `brew install node` |
-| Claude Code | `npm install -g @anthropic-ai/claude-code` |
-| Tree-sitter CLI | `npm install -g tree-sitter-cli` |
-
-Install only the missing prerequisite, then rerun the setup script.
+If a dependency is missing or too old, install or repair it through an approved software source, then rerun the setup script.
 
 ## 3. Clone Workbench and Select the Lab Branch
 
@@ -216,15 +187,14 @@ The automated script retries a new HTTPS clone up to three times when a transien
 
 ## 4. Create the Isolated Python Environment
 
-Run these commands from `~/Lab/workbench`:
+Run these commands from `~/Lab/workbench`, using your approved Python 3.12 or newer in place of `python3` if it is not the one on your `PATH`:
 
 ```bash
-uv python install 3.12
-uv venv --python 3.12 .venv
-uv pip install -r requirements.txt --python .venv/bin/python3
+python3 -m venv .venv
+.venv/bin/python3 -m pip install -r requirements.txt
 ```
 
-> **Note:** `requirements.txt` installs more than 100 Python packages, including indirect dependencies. This is expected. The exact count changes as `requirements.txt` is updated.
+> **Note:** `requirements.txt` installs more than 100 Python packages, including indirect dependencies. This is expected. The exact count changes as `requirements.txt` is updated. If a `.venv` already exists, reuse it; the second command is safe to rerun.
 
 ## 5. Activate and Verify the Python Environment
 
@@ -236,13 +206,7 @@ python3 -c "import yaml, tree_sitter, sklearn, networkx; print('Python dependenc
 
 Expected Python version: 3.12 or newer.
 
-## 6. Build the Custom Language Grammars
-
-```bash
-./scripts/build-grammars.sh --clean
-```
-
-## 7. Add Workbench to zsh
+## 6. Add Workbench to zsh
 
 Run this once:
 
@@ -257,13 +221,14 @@ EOF
 source ~/.zshrc
 ```
 
-## 8. Verify the Installation
+## 7. Verify the Installation
 
 ```bash
 echo "$SPEED_DIR"
 command -v workbench
 echo "$SPEED_PYTHON"
 "$SPEED_PYTHON" --version
+"$SPEED_DIR/lib/timeout" --kill-after=1 2 "$SPEED_PYTHON" -c 'print("Bundled Python timeout: PASS")'
 workbench help
 ```
 
@@ -273,7 +238,8 @@ Expected path pattern:
 /Users/<username>/Lab/workbench
 /Users/<username>/Lab/workbench/workbench
 /Users/<username>/Lab/workbench/.venv/bin/python3
-Python 3.12.x
+Python 3.12.x (or newer)
+Bundled Python timeout: PASS
 ```
 
 Open a new Terminal window and run:
@@ -292,7 +258,7 @@ Expected final line:
 Workbench fresh-terminal check: PASS
 ```
 
-## 9. Prepare and Validate the Payments Lab Fixture
+## 8. Prepare and Validate the Payments Lab Fixture
 
 ```bash
 git clone https://github.com/ArulaAI/payments-validation-fixture.git ~/Lab/payments-validation-fixture
@@ -362,40 +328,33 @@ The setup script ends with this readiness check. To run it manually, open a new 
 ```bash
 FIXTURE="$HOME/Lab/payments-validation-fixture"
 check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; else echo "FAIL  $1"; fi; }
-bash_compatible() {
-  bash_path="$(command -v bash)"
-  need='(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] >= 403 ))'
-  for candidate in /opt/homebrew/bin/bash /usr/local/bin/bash "$bash_path"; do
-    [ -x "$candidate" ] && "$candidate" -c "$need" && return 0
-  done
-  return 1
-}
+bash_ok() { /bin/bash -c '(( BASH_VERSINFO[0] > 3 || (BASH_VERSINFO[0] == 3 && BASH_VERSINFO[1] >= 2) ))'; }
+jq_ok() { jq --version | grep -Eq '^jq-(1\.([7-9]|[1-9][0-9])|[2-9]|[1-9][0-9])' && printf '{}\n' | jq -e .; }
+node_ok() { node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a==22&&b>=18)?0:1)'; }
 doctor_ok() {
   doctor_output="$(cd "$FIXTURE" && workbench skills doctor 2>&1)"
   [[ "$doctor_output" == *"skills doctor: healthy"* && "$doctor_output" == *"0 issue(s)"* ]]
 }
-check "Bash 4.3+"             'bash_compatible'
-check "curl"                  'curl --version'
-check "Git"                   'git --version'
-check "jq"                    'printf "{}\n" | jq -e .'
-check "GNU coreutils"         'gtimeout --version'
-check "uv"                    'uv --version'
-check "Node.js"               'node --version'
-check "npm"                   'npm --version'
-check "Claude Code"           'claude --version'
-check "tree-sitter CLI"       'tree-sitter --version'
-check "Python 3.12+"          '"$SPEED_PYTHON" -c "import sys; sys.exit(sys.version_info < (3,12))"'
-check "Python dependencies"   '"$SPEED_PYTHON" -c "import yaml, tree_sitter, sklearn, networkx"'
-check "Workbench verified"    'workbench help'
-check "SPEED from fixture"    'cd "$FIXTURE" && speed help'
-check "Workbench branch"      '[ "$(git -C "$SPEED_DIR" branch --show-current)" = "feat/301-latest" ]'
-check "Payments fixture"      '[ -d "$FIXTURE/.git" ]'
-check "Fixture main branch"   'git -C "$FIXTURE" show-ref --verify --quiet refs/heads/main'
-check "Fixture round-0"       '[ "$(git -C "$FIXTURE" branch --show-current)" = "round-0" ]'
-check "Fixture Workbench"     '[ -f "$FIXTURE/speed.toml" ]'
-check "Claude harness"        '[ -f "$FIXTURE/.claude/skills/workbench-health/SKILL.md" ]'
-check "Skills doctor healthy" 'doctor_ok'
-check "Round 0 diff"          '[ -n "$(git -C "$FIXTURE" diff --name-only main...round-0)" ]'
+check "Bash 3.2+"              'bash_ok'
+check "curl"                   'curl --version'
+check "Git"                    'git --version'
+check "jq 1.7+"                'jq_ok'
+check "Bundled Python timeout" '"$SPEED_DIR/lib/timeout" --kill-after=1 2 "$SPEED_PYTHON" -c "print(1)"'
+check "Node.js 22.18+"         'node_ok'
+check "npm"                    'npm --version'
+check "Claude Code"            'claude --version'
+check "Python 3.12+"           '"$SPEED_PYTHON" -c "import sys; sys.exit(sys.version_info < (3,12))"'
+check "Python dependencies"    '"$SPEED_PYTHON" -c "import yaml, tree_sitter, sklearn, networkx"'
+check "Workbench verified"     'workbench help'
+check "SPEED from fixture"     'cd "$FIXTURE" && speed help'
+check "Workbench branch"       '[ "$(git -C "$SPEED_DIR" branch --show-current)" = "feat/301-latest" ]'
+check "Payments fixture"       '[ -d "$FIXTURE/.git" ]'
+check "Fixture main branch"    'git -C "$FIXTURE" show-ref --verify --quiet refs/heads/main'
+check "Fixture round-0"        '[ "$(git -C "$FIXTURE" branch --show-current)" = "round-0" ]'
+check "Fixture Workbench"      '[ -f "$FIXTURE/speed.toml" ]'
+check "Claude harness"         '[ -f "$FIXTURE/.claude/skills/workbench-health/SKILL.md" ]'
+check "Skills doctor healthy"  'doctor_ok'
+check "Round 0 diff"           '[ -n "$(git -C "$FIXTURE" diff --name-only main...round-0)" ]'
 ```
 
 The installation and lab fixture are ready when every line prints `PASS`, `/workbench-health` reports `Status: healthy` inside Claude Code, `git --no-pager diff --stat main...round-0` displays the changed-file summary and total, and `speed help` displays the SPEED help and available commands without errors from the fixture directory.
@@ -404,14 +363,14 @@ The installation and lab fixture are ready when every line prints `PASS`, `/work
 
 | Symptom | Resolution |
 |---|---|
-| `brew: command not found` | Install Homebrew through the approved software source, then open a new Terminal window |
 | The script file reports `permission denied` | Run it with `bash Workbench-Lab-Setup-Mac.sh`, or run `chmod +x Workbench-Lab-Setup-Mac.sh` before direct execution |
-| A required command is missing or Bash is older than 4.3 | Follow the script's suggested approved installation or upgrade command, then rerun the script |
+| A required command is missing or too old | Install or repair it through an approved source, as the displayed `Try:` instruction says, then rerun the script |
 | A Git clone is interrupted | Allow the script's bounded retries to complete. If an incomplete target directory remains, move it aside, confirm GitHub, VPN, or proxy access, and rerun |
-| `xcode-select` or compiler check fails | Run `xcode-select --install`, complete the macOS installer, open a new Terminal window, and rerun the setup. On a managed Mac, use the approved software catalog or contact IT support |
+| `xcode-select` or compiler check fails | Install the Apple Command Line Tools through an approved source (on a managed Mac, the approved software catalog or IT support), open a new Terminal window, and rerun the setup |
+| `Python 3.12+ was not found` | Install Python 3.12 or newer through an approved source. If it is not the `python3` on your `PATH`, set `SPEED_PYTHON` to its interpreter, then rerun the script. The script never downloads Python |
+| `Node.js ... is too old` | Install Node.js 22.18 or newer through an approved source, open a new Terminal window, and rerun the script |
 | `workbench: command not found` | Confirm the Workbench block is present in `~/.zshrc`, then open a new Terminal window |
-| Python dependency import fails | From `~/Lab/workbench`, rerun the three commands in section 4 |
-| Grammar build fails | Confirm `tree-sitter --version` works, then rerun section 6 |
+| Python dependency import fails | From `~/Lab/workbench`, rerun the `pip install` command in section 4 |
 | `Author identity unknown` | Configure Git `user.name` and `user.email`, then rerun the initialization commands |
 | Payments fixture directory already exists but is not a Git repository | Move the existing directory aside or clone the fixture to another location before retrying |
 | Payments fixture is not on `round-0` | Preserve any local changes, then run `git switch round-0` from `~/Lab/payments-validation-fixture` |
