@@ -189,9 +189,13 @@ else
 fi
 require_command uv "Install uv through your approved software source (Homebrew: 'brew install uv'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 require_command node "Install Node.js through your approved software source (Homebrew: 'brew install node'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
+node_version_ok() {
+    node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a==22&&b>=18)?0:1)'
+}
+node_version_ok \
+    || die "Node.js $(node --version) is too old. Node.js 22.18 or newer is required." "Install or upgrade Node.js through your approved software source (Homebrew: 'brew upgrade node'), open a new Terminal window, and rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 require_command npm "Install npm with Node.js through your approved software source, then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 require_command claude "Install Claude Code through your approved software source (npm: 'npm install -g @anthropic-ai/claude-code'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
-require_command tree-sitter "Install the Tree-sitter CLI through your approved software source (npm: 'npm install -g tree-sitter-cli'), then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 ok "Required command-line dependencies are available"
 info "Bash: $("$BASH_BIN" --version | /usr/bin/head -n 1)"
 info "curl: $(curl --version | /usr/bin/head -n 1)"
@@ -206,7 +210,6 @@ info "uv: $(uv --version)"
 info "Node.js: $(node --version)"
 info "npm: $(npm --version)"
 info "Claude Code: $(claude --version)"
-info "tree-sitter: $(tree-sitter --version)"
 
 step "Preparing the Lab workspace"
 mkdir -p "$INSTALL_DIR" \
@@ -261,7 +264,7 @@ step "Creating the isolated Python environment"
 (
     cd "$WORKBENCH_DIR" || exit 1
     uv python install 3.12 &&
-    uv venv --python 3.12 .venv &&
+    uv venv --allow-existing --python 3.12 .venv &&
     uv pip install -r requirements.txt --python .venv/bin/python3
 ) || die "The Workbench Python environment could not be prepared." "Review the uv output, resolve the reported package or network issue, and rerun."
 VENV_PY="$WORKBENCH_DIR/.venv/bin/python3"
@@ -272,13 +275,6 @@ VENV_PY="$WORKBENCH_DIR/.venv/bin/python3"
 "$VENV_PY" -c "import yaml, tree_sitter, sklearn, networkx; print('Python dependencies: PASS')" \
     || die "A required Workbench Python package could not be imported." "From '$WORKBENCH_DIR', run 'uv pip install -r requirements.txt --python .venv/bin/python3', then rerun 'bash Workbench-Lab-Setup-Mac.sh'."
 ok "$($VENV_PY --version)"
-
-step "Building the custom language grammars"
-[[ -x "$WORKBENCH_DIR/scripts/build-grammars.sh" ]] \
-    || die "$WORKBENCH_DIR/scripts/build-grammars.sh was not found or is not executable." "Move the incomplete Workbench checkout aside, then rerun 'bash Workbench-Lab-Setup-Mac.sh' to create a fresh clone."
-(cd "$WORKBENCH_DIR" && ./scripts/build-grammars.sh --clean) \
-    || die "The custom language grammar build failed." "Review the build output and rerun the installer after correcting the reported issue."
-ok "Custom language grammars built"
 
 step "Adding Workbench to zsh"
 touch "$HOME/.zshrc" \
@@ -400,10 +396,9 @@ check "Git"                    'git --version' "Install Git through your approve
 check "jq"                     'jq_works' "Install or repair jq through your approved software source, then rerun the installer."
 check "GNU timeout"            '[[ -n "$TIMEOUT_BIN" ]] && "$TIMEOUT_BIN" --version' "Install GNU coreutils through your approved software source, then rerun the installer."
 check "uv"                     'uv --version' "Run 'brew install uv', then rerun the installer."
-check "Node.js"                'node --version' "Install Node.js through your approved software source, then rerun the installer."
+check "Node.js 22.18+"         'node_version_ok' "Install or upgrade Node.js to 22.18 or newer, then rerun the installer."
 check "npm"                    'npm --version' "Install or repair npm with Node.js through your approved software source, then rerun the installer."
 check "Claude Code"            'claude --version' "Install Claude Code through your approved software source, then rerun the installer."
-check "tree-sitter CLI"        'tree-sitter --version' "Install the Tree-sitter CLI through your approved software source, then rerun the installer."
 check "Python 3.12+"           '"$SPEED_PYTHON" -c '\''import sys; sys.exit(sys.version_info < (3,12))'\''' "Run 'uv python install 3.12', then rerun the installer."
 check "Python dependencies"    '"$SPEED_PYTHON" -c '\''import yaml, tree_sitter, sklearn, networkx'\''' "Reinstall requirements.txt in the Workbench virtual environment, then rerun the installer."
 check "Workbench verified"     '[[ "$WORKBENCH_ACTIVE_VERIFIED" -eq 1 && "$WORKBENCH_FRESH_VERIFIED" -eq 1 ]]' "Rerun the installer so the active and fresh-terminal Workbench checks can complete."
